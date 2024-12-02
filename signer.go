@@ -1,4 +1,4 @@
-package mtlssigner
+package mTLS
 
 const (
 	CertStoreNameFileP12      = "FILE_P12" // TODO implement

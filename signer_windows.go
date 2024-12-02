@@ -1,6 +1,6 @@
 //go:build windows
 
-package mtlssigner
+package mTLS
 
 import (
 	"crypto"

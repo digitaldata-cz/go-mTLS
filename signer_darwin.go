@@ -1,6 +1,6 @@
 //go:build darwin && cgo
 
-package mtlssigner
+package mTLS
 
 /*
    #cgo CFLAGS: -x objective-c

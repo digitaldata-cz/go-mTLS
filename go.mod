@@ -1,4 +1,4 @@
-module github.com/digitaldata-cz/mTLS
+module github.com/digitaldata-cz/go-mTLS
 
 go 1.23.2
 

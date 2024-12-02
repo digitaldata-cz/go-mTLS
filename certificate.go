@@ -1,4 +1,4 @@
-package mtlssigner
+package mTLS
 
 import (
 	"crypto/tls"
