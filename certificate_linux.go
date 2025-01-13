@@ -11,7 +11,7 @@ import (
 func ListCertificates(certStoreName string) ([]string, error) {
 	var certNames []string
 
-	keys, err := os.ReadDir("/etc/ssl/private")
+	keys, err := os.ReadDir("/etc/pki/private")
 	if err != nil {
 		return certNames, err
 	}
@@ -20,7 +20,7 @@ func ListCertificates(certStoreName string) ([]string, error) {
 		if filepath.Ext(key.Name()) != ".key" {
 			continue
 		}
-		if _, err := os.Stat(filepath.Join("/etc/ssl/certs", strings.TrimSuffix(key.Name(), ".key")+".crt")); err != nil {
+		if _, err := os.Stat(filepath.Join("/etc/pki/certs", strings.TrimSuffix(key.Name(), ".key")+".crt")); err != nil {
 			continue
 		}
 		s := strings.TrimSuffix(key.Name(), filepath.Ext(key.Name()))
@@ -31,8 +31,8 @@ func ListCertificates(certStoreName string) ([]string, error) {
 }
 
 func (s *SystemSigner) GetClientCertificate(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-	certFile := filepath.Join("/etc/ssl/certs", s.CommonName+".crt")
-	keyFile := filepath.Join("/etc/ssl/private", s.CommonName+".key")
+	certFile := filepath.Join("/etc/pki/certs", s.CommonName+".crt")
+	keyFile := filepath.Join("/etc/pki/private", s.CommonName+".key")
 
 	b, err := os.ReadFile(certFile)
 	if err != nil {
