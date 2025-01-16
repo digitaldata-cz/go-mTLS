@@ -20,9 +20,6 @@ func ListCertificates(certStoreName string) ([]string, error) {
 		if filepath.Ext(key.Name()) != ".key" {
 			continue
 		}
-		if _, err := os.Stat(filepath.Join("/etc/pki/certs", strings.TrimSuffix(key.Name(), ".key")+".crt")); err != nil {
-			continue
-		}
 		s := strings.TrimSuffix(key.Name(), filepath.Ext(key.Name()))
 		certNames = append(certNames, s)
 	}
