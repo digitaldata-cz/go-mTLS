@@ -2,7 +2,6 @@ package mTLS
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,27 +30,11 @@ func (s *SystemSigner) GetClientCertificate(info *tls.CertificateRequestInfo) (*
 	certFile := filepath.Join("/etc/pki/certs", s.CommonName+".crt")
 	keyFile := filepath.Join("/etc/pki/private", s.CommonName+".key")
 
-	b, err := os.ReadFile(certFile)
-	if err != nil {
-		return nil, err
-	}
-	cert, err := x509.ParseCertificate(b)
-	if err != nil {
-		return nil, err
-	}
-
-	b, err = os.ReadFile(keyFile)
-	if err != nil {
-		return nil, err
-	}
-	key, err := x509.ParsePKCS1PrivateKey(b)
+	// Načtení certifikátu a klíče
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		return nil, err
 	}
 
-	certificate := &tls.Certificate{
-		Certificate: [][]byte{cert.Raw},
-		PrivateKey:  key,
-	}
-	return certificate, nil
+	return &cert, nil
 }
