@@ -98,7 +98,16 @@ func (k *CustomSigner) Sign(_ io.Reader, digest []byte, opts crypto.SignerOpts) 
 // stringToCFString converts Go string to CFStringRef
 func stringToCFString(s string) C.CFStringRef {
 	bytes := []byte(s)
-	ptr := (*C.UInt8)(&bytes[0])
+	if len(bytes) == 0 {
+		return C.CFStringCreateWithBytes(
+			C.kCFAllocatorDefault,
+			nil,
+			0,
+			C.kCFStringEncodingUTF8,
+			C.false,
+		)
+	}
+	ptr := (*C.UInt8)(unsafe.Pointer(&bytes[0]))
 	return C.CFStringCreateWithBytes(C.kCFAllocatorDefault, ptr, C.CFIndex(len(bytes)), C.kCFStringEncodingUTF8, C.false)
 }
 
