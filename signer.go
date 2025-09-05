@@ -24,4 +24,8 @@ type SystemSigner struct {
 type EmbeddedSigner struct {
 	PKCS12   []byte
 	Password string
+
+	once        sync.Once
+	certificate *tls.Certificate
+	err         error
 }
