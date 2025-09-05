@@ -7,10 +7,6 @@ import (
 	"strings"
 )
 
-var (
-	certificateCache *tls.Certificate
-)
-
 func ListCertificates(certStoreName string) ([]string, error) {
 	var certNames []string
 
@@ -31,8 +27,11 @@ func ListCertificates(certStoreName string) ([]string, error) {
 }
 
 func (s *SystemSigner) GetClientCertificate(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-	if certificateCache != nil {
-		return certificateCache, nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.certificate != nil {
+		return s.certificate, nil
 	}
 
 	certFile := filepath.Join("/etc/pki/certs", s.CommonName+".crt")
@@ -44,7 +43,7 @@ func (s *SystemSigner) GetClientCertificate(info *tls.CertificateRequestInfo) (*
 		return nil, err
 	}
 
-	certificateCache = &cert
+	s.certificate = &cert
 
-	return certificateCache, nil
+	return s.certificate, nil
 }

@@ -1,5 +1,10 @@
 package mTLS
 
+import (
+	"crypto/tls"
+	"sync"
+)
+
 const (
 	CertStoreNameFileP12      = "FILE_P12" // TODO implement
 	CertStoreNameFilePEM      = "FILE_PEM" // TODO implement
@@ -11,6 +16,9 @@ const (
 type SystemSigner struct {
 	CertStoreName string
 	CommonName    string
+
+	mu          sync.Mutex
+	certificate *tls.Certificate
 }
 
 type EmbeddedSigner struct {
