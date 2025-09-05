@@ -74,6 +74,10 @@ func (k *CustomSigner) Sign(_ io.Reader, digest []byte, opts crypto.SignerOpts) 
 	fmt.Println("DEBUG: Requested signature scheme -", opts.HashFunc().String())
 	fmt.Println("DEBUG: Requested signature scheme -", supportedAlgorithm)
 
+	if len(digest) == 0 {
+		return nil, fmt.Errorf("invalid digest length")
+	}
+
 	// Convert the digest to a CFDataRef
 	digestCFData := C.CFDataCreate(C.kCFAllocatorDefault, (*C.UInt8)(unsafe.Pointer(&digest[0])), C.CFIndex(len(digest)))
 	defer C.CFRelease(C.CFTypeRef(digestCFData))

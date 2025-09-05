@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -42,6 +41,10 @@ func (k *windowSigner) Sign(_ io.Reader, digest []byte, opts crypto.SignerOpts) 
 		return nil, fmt.Errorf("unsupported salt length %d", pssOpts.SaltLength)
 	}
 
+	if len(digest) == 0 {
+		return nil, fmt.Errorf("invalid digest length")
+	}
+
 	const (
 		nCryptSilentFlag = 0x00000040 // ncrypt.h NCRYPT_SILENT_FLAG
 		bCryptPadPss     = 0x00000008 // bcrypt.h BCRYPT_PAD_PSS
@@ -70,16 +73,22 @@ func (k *windowSigner) Sign(_ io.Reader, digest []byte, opts crypto.SignerOpts) 
 		}()
 	}
 
-	var hashAlg *uint16
+	var (
+		hashAlg *uint16
+		strErr  error
+	)
 	switch pssOpts.HashFunc() {
 	case crypto.SHA256:
-		hashAlg, _ = windows.UTF16PtrFromString("SHA256")
+		hashAlg, strErr = windows.UTF16PtrFromString("SHA256")
 	case crypto.SHA384:
-		hashAlg, _ = windows.UTF16PtrFromString("SHA384")
+		hashAlg, strErr = windows.UTF16PtrFromString("SHA384")
 	case crypto.SHA512:
-		hashAlg, _ = windows.UTF16PtrFromString("SHA512")
+		hashAlg, strErr = windows.UTF16PtrFromString("SHA512")
 	default:
 		return nil, fmt.Errorf("unsupported hash function %s", pssOpts.HashFunc().String())
+	}
+	if strErr != nil {
+		return nil, strErr
 	}
 
 	// Create BCRYPT_PSS_PADDING_INFO structure:
