@@ -86,6 +86,8 @@ func (k *CustomSigner) Sign(_ io.Reader, digest []byte, opts crypto.SignerOpts) 
 	)
 	if cfErrorRef != 0 {
 		cdescription := C.CFErrorCopyDescription(cfErrorRef)
+		defer C.CFRelease(C.CFTypeRef(cdescription))
+		C.CFRelease(C.CFTypeRef(cfErrorRef))
 		fmt.Printf("DEBUG: %v", CFStringToString(cdescription))
 		return nil, fmt.Errorf("failed to sign data: %v", CFStringToString(cdescription))
 	}
