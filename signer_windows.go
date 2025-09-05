@@ -66,10 +66,7 @@ func (k *windowSigner) Sign(_ io.Reader, digest []byte, opts crypto.SignerOpts) 
 	}
 	if pfCallerFreeProvOrNCryptKey {
 		defer func() {
-			r, _, _ := nCryptFreeObject.Call(uintptr(privateKey))
-			if r != 0 && err == nil {
-				err = syscall.Errno(r)
-			}
+			nCryptFreeObject.Call(uintptr(privateKey))
 		}()
 	}
 
