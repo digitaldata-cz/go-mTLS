@@ -16,6 +16,7 @@ import (
 
 func ListCertificates(certStoreName string) ([]string, error) {
 	// Open the certificate store
+	var store windows.Handle
 	var certStore uint32
 	switch certStoreName {
 	case CertStoreNameLocalMachine:
@@ -23,10 +24,11 @@ func ListCertificates(certStoreName string) ([]string, error) {
 	case CertStoreNameCurrentUser:
 		certStore = windows.CERT_SYSTEM_STORE_CURRENT_USER
 	default:
+		_ = windows.CertCloseStore(store, 0)
 		return nil, fmt.Errorf("unsupported certificate store")
 	}
 	//fmt.Println("DEBUG: Opening cert store", certStoreName)
-	store, err := windows.CertOpenStore(
+	store, err = windows.CertOpenStore(
 		windows.CERT_STORE_PROV_SYSTEM,
 		0,
 		uintptr(0),
@@ -35,50 +37,53 @@ func ListCertificates(certStoreName string) ([]string, error) {
 	)
 	if err != nil {
 		//fmt.Println("DEBUG: chyba", err)
+		_ = windows.CertCloseStore(store, 0)
 		return nil, err
 	}
 	//fmt.Println("DEBUG: Cert store opened")
 	defer windows.CertCloseStore(store, 0)
 
 	// Find the certificate
-        var pPrevCertContext *windows.CertContext
-        var certNames []string
-        for {
-                certContext, err := windows.CertFindCertificateInStore(
-                        store,
-                        windows.X509_ASN_ENCODING|windows.PKCS_7_ASN_ENCODING,
-                        0,
-                        windows.CERT_FIND_HAS_PRIVATE_KEY,
-                        nil,
-                        pPrevCertContext,
-                )
-                if pPrevCertContext != nil {
-                        _ = windows.CertFreeCertificateContext(pPrevCertContext)
-                        pPrevCertContext = nil
-                }
-                if err != nil {
-                        break
-                }
-                pPrevCertContext = certContext
-                certRaw := unsafe.Slice(certContext.EncodedCert, certContext.Length)
-                cert, err := x509.ParseCertificate(certRaw)
-                if err != nil {
-                        continue
-                }
-                if cert.NotBefore.After(time.Now()) || cert.NotAfter.Before(time.Now()) {
-                        continue
-                }
-                certNames = append(certNames, cert.Subject.CommonName)
-        }
-        if pPrevCertContext != nil {
-                _ = windows.CertFreeCertificateContext(pPrevCertContext)
-        }
-        return certNames, nil
+	var pPrevCertContext *windows.CertContext
+	var certNames []string
+	for {
+		certContext, err := windows.CertFindCertificateInStore(
+			store,
+			windows.X509_ASN_ENCODING|windows.PKCS_7_ASN_ENCODING,
+			0,
+			windows.CERT_FIND_HAS_PRIVATE_KEY,
+			nil,
+			pPrevCertContext,
+		)
+		if pPrevCertContext != nil {
+			_ = windows.CertFreeCertificateContext(pPrevCertContext)
+			pPrevCertContext = nil
+		}
+		if err != nil {
+			break
+		}
+		pPrevCertContext = certContext
+		certRaw := unsafe.Slice(certContext.EncodedCert, certContext.Length)
+		cert, err := x509.ParseCertificate(certRaw)
+		if err != nil {
+			continue
+		}
+		if cert.NotBefore.After(time.Now()) || cert.NotAfter.Before(time.Now()) {
+			continue
+		}
+		certNames = append(certNames, cert.Subject.CommonName)
+	}
+	if pPrevCertContext != nil {
+		_ = windows.CertFreeCertificateContext(pPrevCertContext)
+	}
+	return certNames, nil
 }
 
 func (s *SystemSigner) GetClientCertificate(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	// Validate the supported signature schemes.
 	// TLS cipher suites: https://www.rfc-editor.org/rfc/rfc8446.html#section-9.1
+	var store windows.Handle
+
 	signatureSchemeSupported := false
 	for i := range info.SignatureSchemes {
 		//fmt.Println("DEBUG: Requested signature scheme -", info.SignatureSchemes[i].String())
@@ -90,6 +95,7 @@ func (s *SystemSigner) GetClientCertificate(info *tls.CertificateRequestInfo) (*
 		}
 	}
 	if !signatureSchemeSupported {
+		_ = windows.CertCloseStore(store, 0)
 		return nil, fmt.Errorf("unsupported signature scheme")
 	}
 
@@ -102,9 +108,10 @@ func (s *SystemSigner) GetClientCertificate(info *tls.CertificateRequestInfo) (*
 	case CertStoreNameCurrentUser:
 		certStore = windows.CERT_SYSTEM_STORE_CURRENT_USER
 	default:
+		_ = windows.CertCloseStore(store, 0)
 		return nil, fmt.Errorf("unsupported certificate store")
 	}
-	store, err := windows.CertOpenStore(
+	store, err = windows.CertOpenStore(
 		windows.CERT_STORE_PROV_SYSTEM,
 		0,
 		uintptr(0),
@@ -113,49 +120,51 @@ func (s *SystemSigner) GetClientCertificate(info *tls.CertificateRequestInfo) (*
 	)
 	if err != nil {
 		//fmt.Println("DEBUG: chyba", err)
+		_ = windows.CertCloseStore(store, 0)
 		return nil, err
 	}
 
 	// Find the certificate
-        var pPrevCertContext *windows.CertContext
-        var certContext *windows.CertContext
-        // TODO: Loop through all certificates in the store and find the one with the correct time validity
-        //fmt.Println("DEBUG: Looking for cert with common name", s.CommonName)
-        certFound := false
-        for {
-                certContext, err = windows.CertFindCertificateInStore(
-                        store,
-                        windows.X509_ASN_ENCODING|windows.PKCS_7_ASN_ENCODING,
-                        0,
-                        windows.CERT_FIND_HAS_PRIVATE_KEY,
-                        nil,
-                        pPrevCertContext,
-                )
-                if pPrevCertContext != nil {
-                        _ = windows.CertFreeCertificateContext(pPrevCertContext)
-                        pPrevCertContext = nil
-                }
-                if err != nil {
-                        break
-                }
-                pPrevCertContext = certContext
-                certRaw := unsafe.Slice(certContext.EncodedCert, certContext.Length)
-                cert, err := x509.ParseCertificate(certRaw)
-                if err != nil {
-                        continue
-                }
-                if cert.NotBefore.After(time.Now()) || cert.NotAfter.Before(time.Now()) {
-                        continue
-                }
-                if cert.Subject.CommonName == s.CommonName {
-                        certFound = true
-                        break
-                }
-        }
-        if !certFound && pPrevCertContext != nil {
-                _ = windows.CertFreeCertificateContext(pPrevCertContext)
-        }
+	var pPrevCertContext *windows.CertContext
+	var certContext *windows.CertContext
+	// TODO: Loop through all certificates in the store and find the one with the correct time validity
+	//fmt.Println("DEBUG: Looking for cert with common name", s.CommonName)
+	certFound := false
+	for {
+		certContext, err = windows.CertFindCertificateInStore(
+			store,
+			windows.X509_ASN_ENCODING|windows.PKCS_7_ASN_ENCODING,
+			0,
+			windows.CERT_FIND_HAS_PRIVATE_KEY,
+			nil,
+			pPrevCertContext,
+		)
+		if pPrevCertContext != nil {
+			_ = windows.CertFreeCertificateContext(pPrevCertContext)
+			pPrevCertContext = nil
+		}
+		if err != nil {
+			break
+		}
+		pPrevCertContext = certContext
+		certRaw := unsafe.Slice(certContext.EncodedCert, certContext.Length)
+		cert, err := x509.ParseCertificate(certRaw)
+		if err != nil {
+			continue
+		}
+		if cert.NotBefore.After(time.Now()) || cert.NotAfter.Before(time.Now()) {
+			continue
+		}
+		if cert.Subject.CommonName == s.CommonName {
+			certFound = true
+			break
+		}
+	}
+	if !certFound && pPrevCertContext != nil {
+		_ = windows.CertFreeCertificateContext(pPrevCertContext)
+	}
 	if !certFound {
+		_ = windows.CertCloseStore(store, 0)
 		return nil, fmt.Errorf("certificate not found")
 	}
 	//fmt.Println("DEBUG: Cert found")
@@ -178,6 +187,7 @@ func (s *SystemSigner) GetClientCertificate(info *tls.CertificateRequestInfo) (*
 	buf := bytes.Clone(encodedCert)
 	foundCert, err := x509.ParseCertificate(buf)
 	if err != nil {
+		_ = windows.CertCloseStore(store, 0)
 		return nil, err
 	}
 
