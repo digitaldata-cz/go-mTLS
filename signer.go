@@ -25,7 +25,10 @@ type EmbeddedSigner struct {
 	PKCS12   []byte
 	Password string
 
+	// once ensures the certificate is loaded and cached only once.
 	once        sync.Once
+	// certificate caches the loaded TLS certificate for repeated use.
 	certificate *tls.Certificate
+	// err stores any error encountered during certificate loading.
 	err         error
 }
