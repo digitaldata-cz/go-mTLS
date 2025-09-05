@@ -8,14 +8,16 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
 var (
-	nCrypt         = windows.MustLoadDLL("ncrypt.dll")
-	nCryptSignHash = nCrypt.MustFindProc("NCryptSignHash")
+	nCrypt           = windows.MustLoadDLL("ncrypt.dll")
+	nCryptSignHash   = nCrypt.MustFindProc("NCryptSignHash")
+	nCryptFreeObject = nCrypt.MustFindProc("NCryptFreeObject")
 )
 
 // signer is a crypto.Signer that uses the client certificate and key to sign
@@ -61,6 +63,14 @@ func (k *windowSigner) Sign(_ io.Reader, digest []byte, opts crypto.SignerOpts) 
 	)
 	if err != nil {
 		return nil, err
+	}
+	if pfCallerFreeProvOrNCryptKey {
+		defer func() {
+			r, _, _ := nCryptFreeObject.Call(uintptr(privateKey))
+			if r != 0 && err == nil {
+				err = syscall.Errno(r)
+			}
+		}()
 	}
 
 	var hashAlg *uint16
