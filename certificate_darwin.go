@@ -18,6 +18,13 @@ import (
 )
 
 func (s *SystemSigner) GetClientCertificate(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.certificate != nil {
+		return s.certificate, nil
+	}
+
 	fmt.Printf("Server requested certificate\n")
 
 	// Validate the supported signature schemes.
@@ -93,10 +100,11 @@ func (s *SystemSigner) GetClientCertificate(info *tls.CertificateRequestInfo) (*
 			C.CFRelease(C.CFTypeRef(c.privateKey))
 		},
 	)
-	certificate := tls.Certificate{
+	certificate := &tls.Certificate{
 		Certificate:                  [][]byte{foundCert.Raw},
 		PrivateKey:                   customSigner,
 		SupportedSignatureAlgorithms: []tls.SignatureScheme{supportedAlgorithm},
 	}
-	return &certificate, nil
+	s.certificate = certificate
+	return certificate, nil
 }
