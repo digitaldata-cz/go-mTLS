@@ -18,5 +18,8 @@ func (s *EmbeddedSigner) GetClientCertificate(info *tls.CertificateRequestInfo) 
 			PrivateKey:  key,
 		}
 	})
-	return s.certificate, s.err
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.certificate, nil
 }
