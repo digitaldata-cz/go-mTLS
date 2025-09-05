@@ -41,42 +41,39 @@ func ListCertificates(certStoreName string) ([]string, error) {
 	defer windows.CertCloseStore(store, 0)
 
 	// Find the certificate
-	var pPrevCertContext *windows.CertContext
-	var certContext *windows.CertContext
-	var certNames []string
-	for {
-		//fmt.Println("DEBUG: Looking for cert")
-		certContext, err = windows.CertFindCertificateInStore(
-			store,
-			windows.X509_ASN_ENCODING|windows.PKCS_7_ASN_ENCODING,
-			0,
-			windows.CERT_FIND_HAS_PRIVATE_KEY,
-			nil,
-			pPrevCertContext,
-		)
-		if err != nil {
-			//fmt.Println("DEBUG: Cert not found:", err.Error())
-			break
-		}
-		pPrevCertContext = certContext
-		certRaw := unsafe.Slice(certContext.EncodedCert, certContext.Length)
-		//fmt.Println("DEBUG: Cert found - parsing")
-		cert, err := x509.ParseCertificate(certRaw)
-		if err != nil {
-			//fmt.Println("DEBUG: Cert not parsed:", err.Error())
-			continue
-		}
-		//fmt.Println("DEBUG: Cert parsed")
-		if cert.NotBefore.After(time.Now()) || cert.NotAfter.Before(time.Now()) {
-			//fmt.Println("DEBUG: Cert not valid", cert.Subject.CommonName)
-			continue
-		}
-		//fmt.Println("DEBUG: Cert valid - adding to list", cert.Subject.CommonName)
-		certNames = append(certNames, cert.Subject.CommonName)
-	}
-	//fmt.Println("DEBUG: Returning cert names")
-	//defer windows.CertFreeCertificateContext(pPrevCertContext)
-	return certNames, nil
+        var pPrevCertContext *windows.CertContext
+        var certNames []string
+        for {
+                certContext, err := windows.CertFindCertificateInStore(
+                        store,
+                        windows.X509_ASN_ENCODING|windows.PKCS_7_ASN_ENCODING,
+                        0,
+                        windows.CERT_FIND_HAS_PRIVATE_KEY,
+                        nil,
+                        pPrevCertContext,
+                )
+                if pPrevCertContext != nil {
+                        _ = windows.CertFreeCertificateContext(pPrevCertContext)
+                        pPrevCertContext = nil
+                }
+                if err != nil {
+                        break
+                }
+                pPrevCertContext = certContext
+                certRaw := unsafe.Slice(certContext.EncodedCert, certContext.Length)
+                cert, err := x509.ParseCertificate(certRaw)
+                if err != nil {
+                        continue
+                }
+                if cert.NotBefore.After(time.Now()) || cert.NotAfter.Before(time.Now()) {
+                        continue
+                }
+                certNames = append(certNames, cert.Subject.CommonName)
+        }
+        if pPrevCertContext != nil {
+                _ = windows.CertFreeCertificateContext(pPrevCertContext)
+        }
+        return certNames, nil
 }
 
 func (s *SystemSigner) GetClientCertificate(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
@@ -120,44 +117,44 @@ func (s *SystemSigner) GetClientCertificate(info *tls.CertificateRequestInfo) (*
 	}
 
 	// Find the certificate
-	var pPrevCertContext *windows.CertContext
-	var certContext *windows.CertContext
-	// TODO: Loop through all certificates in the store and find the one with the correct time validity
-	//fmt.Println("DEBUG: Looking for cert with common name", s.CommonName)
-	certFound := false
-	for {
-		//fmt.Println("DEBUG: Looking for cert")
-		certContext, err = windows.CertFindCertificateInStore(
-			store,
-			windows.X509_ASN_ENCODING|windows.PKCS_7_ASN_ENCODING,
-			0,
-			windows.CERT_FIND_HAS_PRIVATE_KEY,
-			nil,
-			pPrevCertContext,
-		)
-		if err != nil {
-			break
-		}
-		pPrevCertContext = certContext
-		certRaw := unsafe.Slice(certContext.EncodedCert, certContext.Length)
-		//fmt.Println("DEBUG: Found certificate - parsing")
-		cert, err := x509.ParseCertificate(certRaw)
-		if err != nil {
-			//fmt.Println("DEBUG: Certificate not parsed:", err.Error())
-			continue
-		}
-		//fmt.Println("DEBUG: Certificate parsed")
-		if cert.NotBefore.After(time.Now()) || cert.NotAfter.Before(time.Now()) {
-			//fmt.Println("DEBUG: Certificate not valid", cert.Subject.CommonName)
-			continue
-		}
-		//fmt.Println("DEBUG: Found certificate with common name", cert.Subject.CommonName)
-		if cert.Subject.CommonName == s.CommonName {
-			certFound = true
-			//fmt.Println("DEBUG: Certificate found!!!")
-			break
-		}
-	}
+        var pPrevCertContext *windows.CertContext
+        var certContext *windows.CertContext
+        // TODO: Loop through all certificates in the store and find the one with the correct time validity
+        //fmt.Println("DEBUG: Looking for cert with common name", s.CommonName)
+        certFound := false
+        for {
+                certContext, err = windows.CertFindCertificateInStore(
+                        store,
+                        windows.X509_ASN_ENCODING|windows.PKCS_7_ASN_ENCODING,
+                        0,
+                        windows.CERT_FIND_HAS_PRIVATE_KEY,
+                        nil,
+                        pPrevCertContext,
+                )
+                if pPrevCertContext != nil {
+                        _ = windows.CertFreeCertificateContext(pPrevCertContext)
+                        pPrevCertContext = nil
+                }
+                if err != nil {
+                        break
+                }
+                pPrevCertContext = certContext
+                certRaw := unsafe.Slice(certContext.EncodedCert, certContext.Length)
+                cert, err := x509.ParseCertificate(certRaw)
+                if err != nil {
+                        continue
+                }
+                if cert.NotBefore.After(time.Now()) || cert.NotAfter.Before(time.Now()) {
+                        continue
+                }
+                if cert.Subject.CommonName == s.CommonName {
+                        certFound = true
+                        break
+                }
+        }
+        if !certFound && pPrevCertContext != nil {
+                _ = windows.CertFreeCertificateContext(pPrevCertContext)
+        }
 	if !certFound {
 		return nil, fmt.Errorf("certificate not found")
 	}
